@@ -3,8 +3,6 @@ using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Threading;
-using System.Windows;
-using System.Windows.Media.Imaging;
 
 
 /* 2018-02-15
@@ -39,8 +37,6 @@ class MjpegDecoder
    // current encoded JPEG image
    public byte[] CurrentFrame { get; private set; }
 
-   public BitmapImage BitmapImage { get; set; }
-
    // 10 MB
    public const int MAX_BUFFER_SIZE = 1024 * 1024 * 10;
 
@@ -56,7 +52,6 @@ class MjpegDecoder
    public MjpegDecoder()
    {
       _context = SynchronizationContext.Current;
-      BitmapImage = new BitmapImage();
    }
 
 
@@ -189,43 +184,35 @@ class MjpegDecoder
    {
       CurrentFrame = frame;
 
-      if (Application.Current != null)
-      {
          _context.Post(delegate
          {
 
             //added try/catch because sometimes jpeg images are corrupted
             try
             {
-               BitmapImage = new BitmapImage();
-               BitmapImage.BeginInit();
-               BitmapImage.StreamSource = new MemoryStream(frame);
-               BitmapImage.EndInit();
+                 using (var stream = new MemoryStream(frame))
+                 {
+                     var old = Bitmap;
+                     Bitmap = new Bitmap(stream);
 
-               FrameReady?.Invoke(this, new FrameReadyEventArgs
-               {
-                  FrameBuffer = CurrentFrame,
-                  BitmapImage = BitmapImage
-               });
+                     FrameReady?.Invoke(this, new FrameReadyEventArgs
+                     {
+                         FrameBuffer = CurrentFrame,
+                         Bitmap = Bitmap,
+                     });
 
+                     if (old != null)
+                     {
+                         old.Dispose();
+                     }
+                 }
             }
-            catch (Exception ex)
+            catch
             {
-
             }
 
 
          }, null);
-
-         //if (DateTime.Now - dtLastFrame >= TimeSpan.FromSeconds(5))
-         //{
-         //   Console.WriteLine(Math.Round((double)counter / (double)5, 2) + " fps");
-         //   dtLastFrame = DateTime.Now;
-         //   counter = 0;
-         //}
-
-         //counter++;
-      }
    }
 }
 
@@ -266,8 +253,8 @@ static class Extensions
 
 public class FrameReadyEventArgs : EventArgs
 {
-   public byte[] FrameBuffer;
-   public BitmapImage BitmapImage;
+    public byte[] FrameBuffer;
+    public Bitmap Bitmap;
 
 }
 
